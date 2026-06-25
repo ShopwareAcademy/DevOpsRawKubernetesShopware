@@ -1,0 +1,14 @@
+# configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: shopware-config
+  namespace: shopware
+data:
+  APP_URL: "http://shopware.localhost"
+  APP_ENV: "prod"
+  SHOPWARE_HTTP_CACHE_ENABLED: "1"
+  SHOPWARE_HTTP_DEFAULT_TTL: "7200"
+  PHP_MEMORY_LIMIT: "512M"
+  SHOPWARE_SKIP_BUNDLE_DUMP: "1"
+  INSTANCE_ID: "local-dev-instance"
