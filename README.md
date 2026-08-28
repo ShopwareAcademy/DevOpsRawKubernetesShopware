@@ -12,7 +12,7 @@ It demonstrates how to:
 - Run a local Shopware stack with MySQL and Valkey in Kubernetes.
 - Make labels, selectors, service names, and resource responsibilities visible.
 
-Tested for **Shopware 6.7**.
+Tested for **Shopware 6.7** with the Shopware PHP 8.5 container images and MySQL 8.4.
 
 ## Reference Project
 
@@ -20,6 +20,11 @@ This repository is an educational reference state for the Academy practical lab.
 
 You do not need to run this project to use it as a reference. The most important files to compare are:
 
+- `composer.json`
+- `composer.lock`
+- `symfony.lock`
+- `.shopware-project.yml`
+- `compose.yaml`
 - `Dockerfile`
 - `shopware-k8s/namespace.yaml`
 - `shopware-k8s/configmap.yaml`
@@ -41,7 +46,17 @@ If you want to run this reference project locally, you still need a local Kubern
 Build the Shopware image:
 
 ```bash
-docker build -t shopware-devops-lp:local .
+docker build -t shopware-devops-lp:local -f Dockerfile .
+```
+
+Install the NGINX Ingress controller if it is not already installed:
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.12.0/deploy/static/provider/cloud/deploy.yaml
+kubectl wait --namespace ingress-nginx \
+  --for=condition=ready pod \
+  --selector=app.kubernetes.io/component=controller \
+  --timeout=120s
 ```
 
 Apply the Kubernetes manifests:
@@ -52,6 +67,10 @@ kubectl apply -f shopware-k8s/configmap.yaml
 kubectl apply -f shopware-k8s/secret.yaml
 kubectl apply -f shopware-k8s/pvc-mysql.yaml
 kubectl apply -f shopware-k8s/mysql-deployment.yaml
+kubectl wait --namespace shopware \
+  --for=condition=ready pod \
+  --selector=app=mysql \
+  --timeout=120s
 kubectl apply -f shopware-k8s/redis-deployment.yaml
 kubectl apply -f shopware-k8s/shopware-deployment.yaml
 kubectl apply -f shopware-k8s/ingress.yaml
@@ -64,7 +83,34 @@ kubectl get all -n shopware
 kubectl get ingress -n shopware
 ```
 
-When MySQL is ready, initialize Shopware from the running Shopware Pod as described in the practical lab.
+Initialize Shopware from the running Shopware Pod:
+
+```bash
+POD_NAME=$(kubectl get pods -n shopware -l app=shopware -o jsonpath="{.items[0].metadata.name}")
+kubectl exec -n shopware $POD_NAME -- php bin/console system:install --create-database --basic-setup --no-interaction --skip-first-run-wizard
+```
+
+If `shopware.localhost` does not resolve to your machine, add it to your local hosts file:
+
+```bash
+echo "127.0.0.1 shopware.localhost" | sudo tee -a /etc/hosts
+```
+
+Some local clusters keep the Ingress controller `EXTERNAL-IP` in `<pending>`. In that case, forward a local port to the Ingress controller:
+
+```bash
+kubectl port-forward -n ingress-nginx service/ingress-nginx-controller 8080:80
+```
+
+If port `8080` is already in use, choose another free local port, for example `8081:80`.
+
+Open the administration through the chosen URL, for example:
+
+```txt
+http://shopware.localhost:8080/admin
+```
+
+After login, set the Sales Channel domain to the same base URL, for example `http://shopware.localhost:8080`.
 
 Stop the setup:
 
